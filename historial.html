@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Historial de Registros</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+      body {
+        background-color: #f8f9fa;
+        font-family: Arial, sans-serif;
+        padding-top: 56px;
+      }
+      
+      .navbar {
+        background-color: #0d6efd;
+      }
+      
+      .navbar-brand, .nav-link {
+        color: white !important;
+      }
+      
+      .content-container {
+        background-color: white;
+        border-radius: 5px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      
+      .title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      
+      .title-icon {
+        color: #0d6efd;
+        margin-right: 10px;
+        font-size: 24px;
+      }
+      
+      .btn-export {
+        margin-left: 10px;
+      }
+      
+      table.dataTable thead th {
+        position: relative;
+        background-image: none !important;
+      }
+
+      table.dataTable thead th.sorting:after,
+      table.dataTable thead th.sorting_asc:after,
+      table.dataTable thead th.sorting_desc:after {
+        position: absolute;
+        top: 12px;
+        right: 8px;
+        display: block;
+        font-family: "Font Awesome 5 Free";
+      }
+
+      table.dataTable thead th.sorting:after {
+        content: "\\f0dc";
+        color: #ddd;
+        font-size: 0.8em;
+        opacity: 0.8;
+      }
+      table.dataTable thead th.sorting_asc:after {
+        content: "\\f0de";
+      }
+      table.dataTable thead th.sorting_desc:after {
+        content: "\\f0dd";
+      }
+      
+      .btn-action {
+        margin-right: 5px;
+      }
+      
+      .user-info {
+        color: white;
+        margin-right: 15px;
+      }
+      
+      .loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999;
+      }
+      
+      .pagination-container {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+      }
+      
+      .show-entries {
+        display: flex;
+        align-items: center;
+      }
+      
+      .show-entries select {
+        margin: 0 5px;
+      }
+      
+      .records-info {
+        color: #6c757d;
+      }
+      
+      .btn-verde {
+        background-color: #28a745;
+        color: white;
+      }
+      
+      .btn-azul {
+        background-color: #17a2b8;
+        color: white;
+      }
+      
+      .btn-rojo {
+        background-color: #dc3545;
+        color: white;
+      }
+    </style>
+  </head>
+  
+  <body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">
+          <span class="fw-bold">Sistema de Registro de Bandas Criminales</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav">
+            <li class="nav-item">
+              <a class="nav-link" href="<?= ScriptApp.getService().getUrl(); ?>?action=formulario">
+                <i class="fas fa-file-alt me-1"></i> Formulario
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link active" href="<?= ScriptApp.getService().getUrl(); ?>?action=historial">
+                <i class="fas fa-history me-1"></i> Historial
+              </a>
+            </li>
+          </ul>
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+              <span class="user-info">
+                <i class="fas fa-user me-1"></i> <span id="username"></span> (Usuario)
+              </span>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" href="#" id="btnLogout">
+                <i class="fas fa-sign-out-alt me-1"></i> Cerrar Sesión
+              </a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    
+    <!-- Contenido principal -->
+    <div class="container mt-4">
+      <div class="content-container">
+        <div class="title-row">
+          <h4>
+            <i class="fas fa-history title-icon"></i>
+            Historial de Registros
+          </h4>
+          <div>
+            <button class="btn btn-success btn-export" id="btnExportExcel">
+              <i class="fas fa-file-excel me-1"></i> Excel
+            </button>
+            <button class="btn btn-danger btn-export" id="btnExportPDF">
+              <i class="fas fa-file-pdf me-1"></i> PDF
+            </button>
+          </div>
+        </div>
+        
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <div class="show-entries">
+              <span>Mostrar</span>
+              <select class="form-select form-select-sm" id="lengthSelect">
+                <option value="10">10</option>
+                <option value="25">25</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+              <span>registros</span>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="input-group">
+              <span class="input-group-text">Buscar:</span>
+              <input type="text" class="form-control" id="searchInput">
+            </div>
+          </div>
+        </div>
+        
+        <div class="table-responsive">
+          <table id="tablaCasos" class="table table-striped table-bordered">
+            <thead>
+              <tr>
+                <th>Fecha de Registro</th>
+                <th>Usuario Creador</th>
+                <th>Carpeta Fiscal</th>
+                <th>Fiscalía</th>
+                <th>Unidad de Inteligencia</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Los datos se cargarán dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="pagination-container">
+          <div class="records-info" id="recordsInfo">Mostrando registros del 0 al 0 de un total de 0 registros</div>
+          <nav aria-label="Page navigation">
+            <ul class="pagination">
+              <li class="page-item disabled">
+                <a class="page-link" href="#" id="prevButton">Anterior</a>
+              </li>
+              <li class="page-item disabled">
+                <a class="page-link" href="#" id="nextButton">Siguiente</a>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Indicador de carga -->
+    <div class="loading" id="loadingIndicator" style="display: none;">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Cargando...</span>
+      </div>
+    </div>
+    
+    <!-- Scripts -->
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- DataTables JS -->
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+    
+
+    <script>
+      
+      // Esta función se ejecuta cuando la página está completamente cargada
+      window.onload = function() {
+        console.log("Página cargada completamente");
+        
+        // Intentar mostrar datos del localStorage inmediatamente
+        mostrarDatosLocalStorage();
+        
+        // Intentar obtener datos del servidor en segundo plano
+        setTimeout(function() {
+          intentarCargarDatosServidor();
+        }, 500);
+        
+        // Agregar manejadores de eventos para los botones de exportación si existen
+        const btnExcel = document.getElementById('btnExportExcel') || document.querySelector('a[href*="Excel"]');
+        if (btnExcel) {
+          btnExcel.addEventListener('click', function(e) {
+            e.preventDefault();
+            exportarExcel();
+          });
+        }
+        
+        const btnPDF = document.getElementById('btnExportPDF') || document.querySelector('a[href*="PDF"]');
+        if (btnPDF) {
+          btnPDF.addEventListener('click', function(e) {
+            e.preventDefault();
+            exportarPDF();
+          });
+        }
+      };
+
+      // Función para mostrar datos desde localStorage directamente
+      function mostrarDatosLocalStorage() {
+        try {
+          console.log("Buscando datos en localStorage...");
+          const storedData = localStorage.getItem('fecor_registros');
+          
+          if (storedData) {
+            const datos = JSON.parse(storedData);
+            console.log("Datos encontrados en localStorage:", datos.length, "registros");
+            
+            if (datos && Array.isArray(datos) && datos.length > 0) {
+              // Obtener usuario actual si está disponible
+              const usernameElement = document.getElementById('username');
+              const currentUser = usernameElement ? usernameElement.textContent : 
+                                sessionStorage.getItem('currentUser');
+              
+              console.log("Usuario actual:", currentUser);
+              
+              // Si hay usuario, filtrar los datos para ese usuario
+              let datosAMostrar = datos;
+              if (currentUser) {
+                datosAMostrar = datos.filter(function(record) {
+                  return record['Usuario Creador'] === currentUser || 
+                        (record.ID && record.ID.indexOf(currentUser) === 0);
+                });
+                console.log("Registros filtrados para usuario:", datosAMostrar.length);
+              }
+              
+              if (datosAMostrar.length > 0) {
+                // Mostrar los datos en la tabla
+                mostrarDatosEnTabla(datosAMostrar);
+                hideLoading(); // Ocultar indicador de carga
+                return true;
+              }
+            }
+          }
+          
+          console.log("No se encontraron datos en localStorage");
+          hideLoading(); // Ocultar indicador de carga incluso si no hay datos
+          return false;
+        } catch (e) {
+          console.error("Error al procesar datos de localStorage:", e);
+          hideLoading(); // Ocultar indicador de carga en caso de error
+          return false;
+        }
+      }
+
+      // Función para intentar cargar datos del servidor
+      function intentarCargarDatosServidor() {
+        try {
+          console.log("Intentando cargar datos del servidor...");
+          
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            // Verificar si existe la función getAllCasos en el servidor
+            if (typeof google.script.run.getAllCasos === 'function') {
+              google.script.run
+                .withSuccessHandler(function(data) {
+                  console.log("Datos recibidos del servidor:", data);
+                  
+                  if (data && Array.isArray(data) && data.length > 0) {
+                    // Guardar en localStorage
+                    localStorage.setItem('fecor_registros', JSON.stringify(data));
+                    console.log("Datos guardados en localStorage");
+                    
+                    // Mostrar los datos en la tabla
+                    mostrarDatosEnTabla(data);
+                  }
+                  hideLoading(); // Ocultar indicador de carga
+                })
+                .withFailureHandler(function(error) {
+                  console.error("Error al obtener datos del servidor:", error);
+                  hideLoading(); // Ocultar indicador de carga en caso de error
+                })
+                .getAllCasos();
+            } else if (typeof google.script.run.obtenerTodosLosCasos === 'function') {
+              // Alternativa: probar con otro nombre de función
+              google.script.run
+                .withSuccessHandler(function(data) {
+                  console.log("Datos recibidos del servidor:", data);
+                  
+                  if (data && Array.isArray(data) && data.length > 0) {
+                    // Guardar en localStorage
+                    localStorage.setItem('fecor_registros', JSON.stringify(data));
+                    console.log("Datos guardados en localStorage");
+                    
+                    // Mostrar los datos en la tabla
+                    mostrarDatosEnTabla(data);
+                  }
+                  hideLoading(); // Ocultar indicador de carga
+                })
+                .withFailureHandler(function(error) {
+                  console.error("Error al obtener datos del servidor:", error);
+                  hideLoading(); // Ocultar indicador de carga en caso de error
+                })
+                .obtenerTodosLosCasos();
+            } else {
+              console.error("La función para obtener casos no está disponible en el servidor");
+              hideLoading(); // Ocultar indicador de carga
+            }
+          } else {
+            console.error("google.script.run no está disponible");
+            hideLoading(); // Ocultar indicador de carga
+          }
+        } catch (e) {
+          console.error("Error al cargar datos del servidor:", e);
+          hideLoading(); // Ocultar indicador de carga en caso de error
+        }
+      }
+
+      // Función para mostrar datos en la tabla
+      function mostrarDatosEnTabla(datos) {
+        try {
+          // Buscar el cuerpo de la tabla
+          const tableBody = document.querySelector("table tbody");
+          if (!tableBody) {
+            console.error("No se encontró el cuerpo de la tabla");
+            
+            // Intento alternativo: buscar la primera tabla en la página
+            const firstTable = document.querySelector("table");
+            if (firstTable) {
+              // Crear tbody si no existe
+              const tbody = firstTable.querySelector("tbody") || document.createElement("tbody");
+              if (!firstTable.contains(tbody)) {
+                firstTable.appendChild(tbody);
+              }
+              
+              // Usar este tbody
+              rellenarTabla(tbody, datos);
+            } else {
+              console.error("No se encontró ninguna tabla en la página");
+            }
+            
+            return;
+          }
+          
+          // Usar el tbody encontrado
+          rellenarTabla(tableBody, datos);
+          
+          // Actualizar mensaje de registros mostrados
+          const infoElement = document.querySelector(".showing-entries, .pagination-info, #showingEntries");
+          if (infoElement) {
+            infoElement.textContent = `Mostrando registros del 1 al ${datos.length} de un total de ${datos.length} registros`;
+          }
+          
+          // Ocultar mensaje de "No hay datos"
+          const noDataMsg = document.querySelector("#noDataMessage, .no-data");
+          if (noDataMsg) {
+            noDataMsg.style.display = "none";
+          }
+          
+          // Ocultar el indicador de carga
+          hideLoading();
+        } catch (e) {
+          console.error("Error al mostrar datos en tabla:", e);
+          hideLoading(); // Ocultar indicador de carga en caso de error
+        }
+      }
+
+      // Función para rellenar la tabla con datos
+      function rellenarTabla(tbody, datos) {
+        // Limpiar tabla
+        tbody.innerHTML = "";
+        
+        // Agregar filas
+        datos.forEach(function(item) {
+          const row = document.createElement("tr");
+          
+          // Crear celdas con los datos
+          const campos = [
+            "Fecha de Registro", 
+            "Usuario Creador", 
+            "Carpeta Fiscal", 
+            "Fiscalía", 
+            "Unidad de Inteligencia"
+          ];
+          
+          // Agregar celdas de datos
+          campos.forEach(function(campo) {
+            const cell = document.createElement("td");
+            cell.textContent = item[campo] || "";
+            row.appendChild(cell);
+          });
+          
+          // Agregar celda de acciones
+          const actionsCell = document.createElement("td");
+          
+          // Crear botones con manejadores de eventos en lugar de atributos onclick
+          const btnVer = document.createElement('button');
+          btnVer.className = 'btn btn-sm btn-info btn-action me-1';
+          btnVer.innerHTML = '<i class="fas fa-eye"></i>';
+          btnVer.addEventListener('click', function() {
+            verDetalle(item.ID);
+          });
+          
+          const btnEditar = document.createElement('button');
+          btnEditar.className = 'btn btn-sm btn-warning btn-action me-1';
+          btnEditar.innerHTML = '<i class="fas fa-edit"></i>';
+          btnEditar.addEventListener('click', function() {
+            editarRegistro(item.ID);
+          });
+          
+          const btnEliminar = document.createElement('button');
+          btnEliminar.className = 'btn btn-sm btn-danger btn-action';
+          btnEliminar.innerHTML = '<i class="fas fa-trash"></i>';
+          btnEliminar.addEventListener('click', function() {
+            eliminarRegistro(item.ID);
+          });
+          
+          actionsCell.appendChild(btnVer);
+          actionsCell.appendChild(btnEditar);
+          actionsCell.appendChild(btnEliminar);
+          
+          row.appendChild(actionsCell);
+          
+          tbody.appendChild(row);
+        });
+      }
+
+      // Funciones para las acciones de los botones (definidos en el ámbito global)
+      window.verDetalle = function(id) {
+        window.location.href = `${window.location.pathname}?action=detalle&id=${id}`;
+      };
+
+      window.editarRegistro = function(id) {
+        window.location.href = `${window.location.pathname}?action=formulario&id=${id}`;
+      };
+
+      window.eliminarRegistro = function(id) {
+        if (confirm('¿Está seguro que desea eliminar este registro?')) {
+          // Intentar eliminar del servidor
+          if (typeof google !== 'undefined' && google.script && google.script.run) {
+            if (typeof google.script.run.deleteCaso === 'function') {
+              google.script.run
+                .withSuccessHandler(function(result) {
+                  if (result && result.success) {
+                    // Eliminar también del localStorage
+                    removeFromLocalStorage(id);
+                    alert('Registro eliminado correctamente');
+                    location.reload();
+                  } else {
+                    alert('Error al eliminar el registro: ' + (result ? result.message : 'Error desconocido'));
+                  }
+                })
+                .withFailureHandler(function(error) {
+                  alert('Error al eliminar el registro: ' + error);
+                })
+                .deleteCaso(id);
+            } else if (typeof google.script.run.eliminarCaso === 'function') {
+              // Alternativa: probar con otro nombre de función
+              google.script.run
+                .withSuccessHandler(function(result) {
+                  if (result && result.success) {
+                    // Eliminar también del localStorage
+                    removeFromLocalStorage(id);
+                    alert('Registro eliminado correctamente');
+                    location.reload();
+                  } else {
+                    alert('Error al eliminar el registro: ' + (result ? result.message : 'Error desconocido'));
+                  }
+                })
+                .withFailureHandler(function(error) {
+                  alert('Error al eliminar el registro: ' + error);
+                })
+                .eliminarCaso(id);
+            } else {
+              // Si no se encuentra la función en el servidor, eliminar solo del localStorage
+              removeFromLocalStorage(id);
+              alert('Función para eliminar no disponible. Registro eliminado localmente.');
+              location.reload();
+            }
+          } else {
+            // Si no se puede acceder al servidor, solo eliminar del localStorage
+            removeFromLocalStorage(id);
+            alert('Registro eliminado localmente');
+            location.reload();
+          }
+        }
+      };
+
+      // Eliminar un registro del localStorage
+      function removeFromLocalStorage(id) {
+        try {
+          const storedData = localStorage.getItem('fecor_registros');
+          if (storedData) {
+            const datos = JSON.parse(storedData);
+            const nuevosDatos = datos.filter(function(item) {
+              return item.ID !== id;
+            });
+            localStorage.setItem('fecor_registros', JSON.stringify(nuevosDatos));
+            console.log("Registro eliminado de localStorage:", id);
+          }
+        } catch (e) {
+          console.error("Error al eliminar registro de localStorage:", e);
+        }
+      }
+
+      // Funciones para exportación
+      window.exportarExcel = function() {
+        showLoading();
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          // Verificar si existe la función de exportación a Excel
+          if (typeof google.script.run.exportarExcel === 'function') {
+            google.script.run
+              .withSuccessHandler(procesarExportacionExcel)
+              .withFailureHandler(manejarError)
+              .exportarExcel();
+          } else if (typeof google.script.run.exportToExcel === 'function') {
+            // Alternativa: probar con otro nombre de función
+            google.script.run
+              .withSuccessHandler(procesarExportacionExcel)
+              .withFailureHandler(manejarError)
+              .exportToExcel();
+          } else {
+            // Si no existe la función en el servidor, usar localStorage
+            exportarExcelDesdeLocalStorage();
+          }
+        } else {
+          // Si no se puede acceder al servidor, usar localStorage
+          exportarExcelDesdeLocalStorage();
+        }
+      };
+
+      window.exportarPDF = function() {
+        showLoading();
+        if (typeof google !== 'undefined' && google.script && google.script.run) {
+          // Verificar si existe la función de exportación a PDF
+          if (typeof google.script.run.exportarPDF === 'function') {
+            google.script.run
+              .withSuccessHandler(procesarExportacionPDF)
+              .withFailureHandler(manejarError)
+              .exportarPDF();
+          } else if (typeof google.script.run.exportToPDF === 'function') {
+            // Alternativa: probar con otro nombre de función
+            google.script.run
+              .withSuccessHandler(procesarExportacionPDF)
+              .withFailureHandler(manejarError)
+              .exportToPDF();
+          } else {
+            // Si no existe la función en el servidor, usar localStorage
+            alert('Función para exportar a PDF no disponible en el servidor.');
+            hideLoading();
+          }
+        } else {
+          // Si no se puede acceder al servidor
+          alert('No se puede conectar con el servidor para exportar a PDF');
+          hideLoading();
+        }
+      };
+
+      // Exportar datos desde localStorage a Excel (alternativa si la función del servidor no está disponible)
+      function exportarExcelDesdeLocalStorage() {
+        try {
+          const storedData = localStorage.getItem('fecor_registros');
+          if (storedData) {
+            const datos = JSON.parse(storedData);
+            if (datos && Array.isArray(datos) && datos.length > 0) {
+              // Crear un CSV básico desde los datos
+              const headers = ["Fecha de Registro", "Usuario Creador", "Carpeta Fiscal", "Fiscalía", "Unidad de Inteligencia"];
+              let csv = headers.join(",") + "\n";
+              
+              datos.forEach(function(item) {
+                const row = headers.map(function(header) {
+                  let cell = item[header] || "";
+                  // Escapar comas y comillas en los valores
+                  if (cell.toString().includes(",") || cell.toString().includes("\"")) {
+                    cell = '"' + cell.toString().replace(/"/g, '""') + '"';
+                  }
+                  return cell;
+                });
+                csv += row.join(",") + "\n";
+              });
+              
+              // Crear un enlace para descargar el CSV
+              const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+              const link = document.createElement("a");
+              const url = URL.createObjectURL(blob);
+              link.setAttribute("href", url);
+              link.setAttribute("download", "registros_export.csv");
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            } else {
+              alert('No hay datos para exportar');
+            }
+          } else {
+            alert('No hay datos almacenados para exportar');
+          }
+          hideLoading();
+        } catch (e) {
+          console.error("Error al exportar datos desde localStorage:", e);
+          alert('Error al exportar datos: ' + e.message);
+          hideLoading();
+        }
+      }
+
+      // Función para procesar la exportación a Excel
+      window.procesarExportacionExcel = function(resultado) {
+        hideLoading();
+        
+        if (resultado && resultado.success) {
+          // Crear un enlace temporal para la descarga
+          const a = document.createElement('a');
+          a.href = 'data:' + resultado.mimeType + ';base64,' + resultado.data;
+          a.download = resultado.fileName || 'registros_export.xlsx';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } else if (resultado && resultado.data) {
+          // Formato alternativo de respuesta
+          const a = document.createElement('a');
+          a.href = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + resultado.data;
+          a.download = 'registros_export.xlsx';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } else {
+          alert('Error al exportar a Excel: ' + (resultado ? resultado.message : 'Error desconocido'));
+        }
+      };
+
+      // Función para procesar la exportación a PDF
+      window.procesarExportacionPDF = function(resultado) {
+        hideLoading();
+        
+        if (resultado && resultado.success) {
+          // Crear un enlace temporal para la descarga
+          const a = document.createElement('a');
+          a.href = 'data:' + resultado.mimeType + ';base64,' + resultado.data;
+          a.download = resultado.fileName || 'registros_export.pdf';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } else if (resultado && resultado.data) {
+          // Formato alternativo de respuesta
+          const a = document.createElement('a');
+          a.href = 'data:application/pdf;base64,' + resultado.data;
+          a.download = 'registros_export.pdf';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        } else {
+          alert('Error al exportar a PDF: ' + (resultado ? resultado.message : 'Error desconocido'));
+        }
+      };
+
+      // Función para manejar errores
+      window.manejarError = function(error) {
+        hideLoading();
+        console.error(error);
+        
+        if (error && error.message && error.message.includes('Authorization')) {
+          // Error de autorización, volver al login
+          alert('Su sesión ha expirado. Por favor, inicie sesión de nuevo.');
+          window.top.location.href = '<?= ScriptApp.getService().getUrl(); ?>';
+        } else {
+          alert('Error: ' + (error ? (error.message || error) : 'Error desconocido'));
+        }
+      };
+
+      // Funciones auxiliares para mostrar/ocultar el indicador de carga
+      function showLoading() {
+        // Buscar elementos de carga existentes
+        const loadingElement = document.getElementById('loading') || 
+                              document.querySelector('.loading') || 
+                              document.querySelector('[role="status"]');
+        
+        if (loadingElement) {
+          loadingElement.style.display = 'block';
+        } else {
+          // Crear un elemento de carga si no existe
+          const loading = document.createElement('div');
+          loading.id = 'loading';
+          loading.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 9999;';
+          loading.innerHTML = '<div style="background: white; padding: 20px; border-radius: 5px;">Cargando...</div>';
+          document.body.appendChild(loading);
+        }
+      }
+
+      function hideLoading() {
+        // Ocultar todos los posibles indicadores de carga
+        const loadingElements = [
+          document.getElementById('loading'),
+          document.querySelector('.loading'),
+          document.querySelector('[role="status"]'),
+          ...document.querySelectorAll('.cargando, .loading-indicator')
+        ];
+        
+        loadingElements.forEach(function(el) {
+          if (el) {
+            if (el.tagName === 'DIV') {
+              el.style.display = 'none';
+            } else {
+              // Para otros tipos de elementos que podrían ser indicadores de carga
+              el.style.visibility = 'hidden';
+            }
+          }
+        });
+        
+        // Buscar y ocultar cualquier div que contenga "Cargando..." como texto
+        document.querySelectorAll('div').forEach(function(div) {
+          if (div.textContent.includes('Cargando')) {
+            div.style.display = 'none';
+          }
+        });
+      }
+
+      // Ocultar cualquier indicador de carga existente cuando se carga la página
+      document.addEventListener('DOMContentLoaded', function() {
+        // Dar un pequeño tiempo para que la página termine de cargar
+        setTimeout(hideLoading, 1000);
+      });
+    </script>
+  </body>
+</html>
